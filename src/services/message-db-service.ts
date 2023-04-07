@@ -7,7 +7,7 @@ export const MESSAGE_DB_SERVICE = Symbol('MessageDbService');
 export interface IMessageDbService {
   upsert(record: Message): Promise<void>;
   seed(count?: number): Promise<void>;
-  create(): Promise<void>;
+  create(force?: boolean): Promise<void>;
   messagesByIds(ids: string[]): Promise<Message[]>;
   bulkUpsert(messages: Message[]): Promise<void>;
   unsignedMessageIds(): Promise<string[]>;
@@ -40,10 +40,10 @@ export class MessageDbService implements IMessageDbService {
     console.log('exit-message-seed', { count });
   }
 
-  async create(): Promise<void> {
-    console.log('enter-create-key-table');
-    await this._db.create(MESSAGE_SCHEMA);
-    console.log('exit-create-key-table');
+  async create(force = false): Promise<void> {
+    console.log('enter-create-key-table', { force });
+    await (force ? this._db.drop : this._db.create)(MESSAGE_SCHEMA);
+    console.log('exit-create-key-table', { force });
   }
 
   async messagesByIds(ids: string[]): Promise<Message[]> {

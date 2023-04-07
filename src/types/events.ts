@@ -3,31 +3,27 @@ import { Key } from './models';
 
 export abstract class Event {}
 
-export class StartSignCommand extends Event {
+export class StartSignCommand implements Event {
   @IsInt()
   @Min(1)
   batchSize: number;
 }
 
-export class SignBatchCommand extends Event {
+export class SignBatchCommand implements Event {
   constructor(init?: Partial<SignBatchCommand>) {
-    super();
     Object.assign(this, init);
   }
   @IsString({ each: true })
   messageIds: string[];
 }
 
-export class AvailableKeyEvent extends Event implements Key {
+export class AvailableKeyEvent implements Event, Omit<Key, 'public'> {
   constructor(key?: Key) {
-    super();
-    Object.assign(this, key);
+    Object.assign(this, { ...key, public: undefined });
   }
 
   @IsString()
   id: string;
   @IsString()
   private: string;
-  @IsString()
-  public: string;
 }

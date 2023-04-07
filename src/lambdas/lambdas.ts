@@ -1,14 +1,16 @@
+import "reflect-metadata"; // prerequisite for inversify
+
 import { middy } from '@core/middleware';
 import { SignBatchCommand, StartSignCommand, StartupRequest, UnsignedMessageIdsRequest } from 'src/types';
 import { container } from 'src/provider';
-import { KEY_DB_SERVICE } from '@services/key-db-service';
 import { IMessageDbService, MESSAGE_DB_SERVICE } from '@services/message-db-service';
 import { ISignService, SIGN_SERVICE } from '@services/sign-service';
 import { IStartupService, STARTUP_SERVICE } from '@services/startup-service';
 
 export const startup = middy(StartupRequest, async () => {
   const service = container.get<IStartupService>(STARTUP_SERVICE);
-  return await service.setup();
+  await service.setup();
+  return { hello: "world" };
 });
 
 export const unsignedMessageIds = middy(UnsignedMessageIdsRequest, async () => {

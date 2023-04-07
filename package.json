@@ -6,7 +6,7 @@
   "description": "Concurrent record signing in batches",
   "main": "serverless.ts",
   "scripts": {
-    "prestart": "docker-compose up -d",
+    "pprestart": "docker-compose up -d",
     "start": "serverless deploy --stage local",
     "test": "echo \"Error: no test specified\" && exit 1",
     "stop": "docker-compose down"
@@ -29,6 +29,7 @@
     "jabber": "^1.5.3",
     "middy-middleware-class-validator": "^2.0.2",
     "middy-middleware-json-error-handler": "^3.0.0",
+    "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0"
   },
   "devDependencies": {

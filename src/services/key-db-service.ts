@@ -1,7 +1,7 @@
 import { inject, injectable } from 'inversify';
 import { Key, KEY_SCHEMA, Models } from 'src/types';
 import { DbService, DB_SERVICE, IDbService } from './db-service';
-import { generateKeyPairSync } from 'crypto';
+import { generateKeyPair, generateKeyPairSync } from 'crypto';
 
 export const KEY_DB_SERVICE = Symbol('KeyDbService');
 export interface IKeyDbService {
@@ -25,7 +25,7 @@ export class KeyDbService implements IKeyDbService {
   }
 
   async seed(count: number = 100): Promise<Key[] | undefined> {
-    console.log('enter-key-seed');
+    console.log('enter-key-seed', { count });
     const existingCount = await this._db.count(KeyDbService.table);
     if (existingCount) {
       console.log('skip-key-seed', { existingCount });
@@ -37,22 +37,32 @@ export class KeyDbService implements IKeyDbService {
       public: key.publicKey
     }));
     await this._db.upsertBulk(KeyDbService.table, keys);
+    console.log('exit-key-seed', { upserted: keys.length });
     return keys;
   }
 
-  private generate(): KeyPair {
-    return generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      publicKeyEncoding: {
-        type: 'spki',
-        format: 'pem'
-      },
-      privateKeyEncoding: {
-        type: 'pkcs8',
-        format: 'pem',
-        cipher: 'aes-256-cbc',
-        passphrase: 'top secret'
-      }
+  private async generate(): Promise<KeyPair> {
+    return new Promise((resolve, reject) => {
+      generateKeyPair(
+        'rsa',
+        {
+          modulusLength: 2048,
+          publicKeyEncoding: {
+            type: 'spki',
+            format: 'pem'
+          },
+          privateKeyEncoding: {
+            type: 'pkcs8',
+            format: 'pem',
+            cipher: 'aes-256-cbc',
+            passphrase: 'top secret'
+          }
+        },
+        (err, publicKey, privateKey) => {
+          if (err) reject(err);
+          else resolve({ privateKey, publicKey });
+        }
+      );
     });
   }
 

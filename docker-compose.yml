@@ -8,7 +8,7 @@ services:
       - "127.0.0.1:4566:4566"            # LocalStack Gateway
       - "127.0.0.1:4510-4559:4510-4559"  # external services port range
     environment:
-      - DEBUG=1
+      - DEBUG=0
       - DOCKER_HOST=unix:///var/run/docker.sock
       - PROVIDER_OVERRIDE_LAMBDA=v2
       - AWS_ACCESS_KEY_ID=test

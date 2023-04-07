@@ -1,10 +1,10 @@
 import type { AWS } from '@serverless/typescript';
-import { helloEndpoints, lambdaEndpoints } from 'src/lambdas';
+import { helloEndpoints, lambdaEndpoints } from '@lambdas/*';
 import { Lift } from 'serverless-lift';
 
 const serverlessConfiguration: AWS & Lift = {
   useDotenv: true,
-  service: 'signer',
+  service: 'signer21',
   frameworkVersion: '3',
   plugins: ['serverless-esbuild', 'serverless-localstack', 'serverless-dotenv-plugin', 'serverless-lift'],
   provider: {
@@ -12,23 +12,22 @@ const serverlessConfiguration: AWS & Lift = {
     runtime: 'nodejs18.x',
     apiGateway: {
       minimumCompressionSize: 1024,
-      shouldStartNameWithService: true,
-      restApiId: '${env:API_ID}'
+      shouldStartNameWithService: true
     },
     environment: {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000'
     }
   },
-  constructs: {
-    'start-sign-queue': {
-      type: 'queue',
-      batchSize: 1,
-      worker: {
-        handler: 'src/lambdas/lambdas.sign'
-      }
-    }
-  },
+  // constructs: {
+  //   'start-sign-queue': {
+  //     type: 'queue',
+  //     batchSize: 1,
+  //     worker: {
+  //       handler: 'src/lambdas/lambdas.sign'
+  //     }
+  //   }
+  // },
   // @ts-ignore
   functions: { ...helloEndpoints, ...lambdaEndpoints },
   package: { individually: true },
@@ -45,7 +44,7 @@ const serverlessConfiguration: AWS & Lift = {
     },
     localstack: {
       stages: ['local'],
-      mountCode: true
+      mountCode: true,
     }
   }
 };

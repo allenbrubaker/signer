@@ -4,8 +4,8 @@ import { endpoints, HttpMethod } from '@core/api-gateway';
 
 export const helloEndpoints = endpoints(__dirname, 'hello-lambdas', {
   handler: 'postHello',
-  method: HttpMethod.post,
-  path: 'hello'
+  path: 'hello',
+  method: HttpMethod.post
 });
 
 export enum Urls {
@@ -19,12 +19,17 @@ export const lambdaEndpoints = endpoints(
   'lambdas',
   {
     handler: 'startup',
-    method: HttpMethod.post,
-    path: Urls.startup
+    path: Urls.startup,
+    method: HttpMethod.post
   },
   {
     handler: 'startSign',
-    method: HttpMethod.post,
-    path: Urls.startSign
+    path: Urls.startSign,
+    method: HttpMethod.post
+  },
+  {
+    handler: 'unsignedMessageIds',
+    path: Urls.unsignedMessageIds,
+    method: HttpMethod.get
   }
 );

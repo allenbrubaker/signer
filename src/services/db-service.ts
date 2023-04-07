@@ -5,11 +5,10 @@ import {
   DeleteTableCommand,
   DynamoDBClient,
   ListTablesCommand,
-  ScanCommand,
   waitUntilTableExists,
   WriteRequest
 } from '@aws-sdk/client-dynamodb';
-import { BatchWriteCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchWriteCommand, GetCommand, PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import cuid from 'cuid';
 import { inject, injectable } from 'inversify';
 import { from, lastValueFrom, map, mergeMap, toArray } from 'rxjs';
@@ -34,16 +33,16 @@ export const DB_SERVICE = Symbol('DbService');
 export class DbService implements IDbService {
   _client: DynamoDBClient;
   constructor(@inject(ENV_SERVICE) private _env: IEnvService) {
-    this._client = new DynamoDBClient({});
+    this._client = new DynamoDBClient({ endpoint: `http://${process.env.LOCALSTACK_HOSTNAME}:4566` });
   }
 
   static newId() {
-    return cuid();
+    return Math.random().toString(36).slice(2); //cuid();
   }
 
   async all<T>(table: string): Promise<T[]> {
-    const result = await this._client.send(new ScanCommand({ TableName: table }));
-    return result.Items as T[];
+    const all = await this.scan(table);
+    return all as T[];
   }
 
   async count(table: string): Promise<number | undefined> {
@@ -74,10 +73,11 @@ export class DbService implements IDbService {
   }
 
   async create(schema: CreateTableCommandInput): Promise<boolean> {
-    console.log('enter-create-table');
+    const log = { table: schema.TableName };
+    console.log('enter-create-table', log);
     const tables = await this.tables();
     if (tables.find(x => x === schema.TableName)) {
-      console.log('table-already-exists');
+      console.log('table-already-exists', log);
       return false;
     }
     this._client.send(new CreateTableCommand(schema));
@@ -85,7 +85,7 @@ export class DbService implements IDbService {
       { client: this._client, maxWaitTime: 15, maxDelay: 2, minDelay: 1 },
       { TableName: schema.TableName }
     );
-    console.log('table-created', { table: schema.TableName });
+    console.log('table-created', log);
     return true;
   }
 
@@ -108,10 +108,8 @@ export class DbService implements IDbService {
 
   async drop(schema: CreateTableCommandInput) {
     const log = { table: schema.TableName };
-    console.log('enter-drop-table', log);
     await this.delete(schema.TableName!);
     await this.create(schema);
-    console.log('exit-drop-table', log);
   }
 
   async findByIds<T>(table: string, ids: string[]): Promise<T[]> {
@@ -144,7 +142,8 @@ export class DbService implements IDbService {
           ExclusiveStartKey: lastEvaluatedKey
         })
       );
-      items.push(...(<T[]>Items ?? []));
+      const it = (Items ?? []) as T[];
+      items.push(...it);
       log.count = items?.length;
       log.page = i++;
       lastEvaluatedKey = LastEvaluatedKey;

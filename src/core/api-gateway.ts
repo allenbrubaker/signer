@@ -33,19 +33,17 @@ type Parms = {
 };
 
 export const endpoints = (dirname: string, controller: string, ...parms: Parms[]) =>
-  parms.map(({ handler, method, path }) => ({
-    handler: `${handlerPath(dirname)}/${controller}.${handler}`,
-    events: [
-      {
-        http: {
-          method: method as string,
-          path,
-          request: {
-            // schemas: {
-            //   'application/json': schema,
-            // },
+  parms.reduce<Record<string, unknown>>((acc, { handler, method, path }) => {
+    acc[handler] = {
+      handler: `${handlerPath(dirname)}/${controller}.${handler}`,
+      events: [
+        {
+          http: {
+            method: method.toUpperCase(),
+            path
           }
         }
-      }
-    ]
-  }));
+      ]
+    };
+    return acc;
+  }, {});
