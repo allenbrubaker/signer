@@ -2254,7 +2254,7 @@ cidr-split@^0.1.2:
   dependencies:
     bignumber.js "7.2.1"
 
-class-transformer-validator@>=0.8.0:
+class-transformer-validator@>=0.8.0, class-transformer-validator@^0.9.1:
   version "0.9.1"
   resolved "https://registry.yarnpkg.com/class-transformer-validator/-/class-transformer-validator-0.9.1.tgz#81af4bab5e13ce619a25a74cc70f723a8c4e2779"
   integrity sha512-83/KFCyd6UiiwH6PlQS5y17O5TTx58CawvNI+XdrMs0Ig9QI5kiuzRqGcC/WrEpd1F7i4KIxCwdn6m4B6fl0jw==

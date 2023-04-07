@@ -7,6 +7,7 @@ export interface IEnvService {
   get apiUrl(): string;
   get dbConcurrency(): number;
   get keyQueue(): string;
+  get signQueue(): string;
 }
 
 @injectable()
@@ -26,6 +27,9 @@ export class EnvService implements IEnvService {
   }
   get keyQueue() {
     return this.string(`KEY_QUEUE`);
+  }
+  get signQueue() {
+    return this.string(`SIGN_QUEUE`).split('/').at(-1)!; // get queue name from url
   }
 
   private string(key: string) {

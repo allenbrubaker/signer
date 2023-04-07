@@ -1,6 +1,6 @@
 import { default as middyBase, MiddlewareObj } from '@middy/core';
 import httpErrorHandler from '@middy/http-error-handler';
-import { APIGatewayEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
+import { APIGatewayEvent, EventBridgeEvent, APIGatewayProxyResult, Context, SQSEvent, SQSRecord } from 'aws-lambda';
 import { ClassValidatorMiddleware } from 'middy-middleware-class-validator';
 import JSONErrorHandlerMiddleware from 'middy-middleware-json-error-handler';
 
@@ -19,7 +19,7 @@ const logger: MiddlewareObj = {
   before: b => {
     // @ts-ignore
     const { body } = b.event;
-    console.info(`enter-${b.context.functionName}`, { event: body });
+    console.info(`enter-${b.context.functionName}`, { event: b.event });
   },
   after: b => {
     // @ts-ignore
@@ -28,16 +28,36 @@ const logger: MiddlewareObj = {
   }
 };
 
+const parseEvent: MiddlewareObj<SQSEvent> = {
+  before: b => {
+    // @ts-ignore
+    b.event = JSON.parse(b.event.Records[0].body) as EventBridgeEvent<string, string>;
+    // @ts-ignore
+    b.event.body = b.event.detail;
+  }
+};
+
 export type Body<T, B = {}> = Omit<T, 'body'> & {
   body: B;
 };
 
-export const middy = <T extends object, TEvent = Body<APIGatewayEvent, T>, TResult = any>(
+export const middySqs = <T extends object, TEvent = Body<EventBridgeEvent<string, T>, T>, TResult = any>(
+  classType: Class<T>,
+  handler: (x: { event: TEvent; context: Context }) => Promise<TResult>
+) =>
+  middyBase((event: TEvent, context: Context) => handler({ event, context }))
+    .use(parseEvent)
+    .use(logger)
+    // .use(jsonResponse);
+    .use(new ClassValidatorMiddleware({ classType }));
+// .use(JSONErrorHandlerMiddleware());
+
+export const middyApi = <T extends object, TEvent = Body<APIGatewayEvent, T>, TResult = any>(
   classType: Class<T>,
   handler: (x: { event: TEvent; context: Context }) => Promise<TResult>
 ) =>
   middyBase((event: TEvent, context: Context) => handler({ event, context }))
     .use(logger)
-    .use(jsonResponse);
-// .use(new ClassValidatorMiddleware({ classType }))
+    .use(jsonResponse)
+    .use(new ClassValidatorMiddleware({ classType }));
 // .use(JSONErrorHandlerMiddleware());

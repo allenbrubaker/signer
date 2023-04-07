@@ -4,15 +4,18 @@ import {
   CreateTableCommandInput,
   DeleteTableCommand,
   DynamoDBClient,
+  ExecuteStatementCommand,
   ListTablesCommand,
   waitUntilTableExists,
   WriteRequest
 } from '@aws-sdk/client-dynamodb';
-import { BatchWriteCommand, GetCommand, PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import cuid from 'cuid';
+import { BatchGetCommand, BatchWriteCommand, PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { inject, injectable } from 'inversify';
-import { from, lastValueFrom, map, mergeMap, toArray } from 'rxjs';
+import { defer, from, lastValueFrom, mergeMap } from 'rxjs';
 import { ENV_SERVICE, IEnvService } from './env-service';
+import { getBatches } from '@core/utils';
+
+export type ScanProps = { table: string; filter?: string; select?: string[] };
 
 export interface IDbService {
   upsert<T>(table: string, item: Partial<T>): Promise<void>;
@@ -21,10 +24,11 @@ export interface IDbService {
   create(schema: CreateTableCommandInput): Promise<boolean>;
   tables(): Promise<string[]>;
   delete(table: string): Promise<boolean>;
-  drop(schema: CreateTableCommandInput): Promise<void>;
+  recreate(schema: CreateTableCommandInput): Promise<void>;
   findByIds<T>(table: string, ids: string[]): Promise<T[]>;
   all<T>(table: string): Promise<T[]>;
-  scan<T>(table: string, filter?: string, select?: string[]): Promise<Partial<T>[]>;
+  scan<T>(_: ScanProps): Promise<Partial<T>[]>;
+  sql(query: string): Promise<void>;
 }
 
 export const DB_SERVICE = Symbol('DbService');
@@ -41,12 +45,12 @@ export class DbService implements IDbService {
   }
 
   async all<T>(table: string): Promise<T[]> {
-    const all = await this.scan(table);
+    const all = await this.scan({ table });
     return all as T[];
   }
 
   async count(table: string): Promise<number | undefined> {
-    const { Count } = await this._client.send(new ScanCommand({ Select: 'COUNT', TableName: table }));
+    const { Count } = await this._client.send(new ScanCommand({ Select: 'COUNT', TableName: table, Limit: 1 }));
     return Count;
   }
 
@@ -55,7 +59,8 @@ export class DbService implements IDbService {
   }
 
   async upsertBulk<T>(table: string, items: T[]): Promise<void> {
-    const log = { table, count: items.length };
+    const log: Record<string, unknown> = { table, count: items.length };
+    const start = Date.now();
     console.log('enter-bulk-upsert', log);
 
     // max batch size is 25
@@ -67,8 +72,10 @@ export class DbService implements IDbService {
           return group;
         }, {})
     ).map<BatchWriteCommand>(x => new BatchWriteCommand({ RequestItems: { [table]: x } }));
-
-    await Promise.all(batches.map(command => this._client.send(command)));
+    await lastValueFrom(
+      from(batches).pipe(mergeMap(cmd => defer(() => this._client.send(cmd)), this._env.dbConcurrency))
+    );
+    log.duration = Math.round((Date.now() - start) / 1000);
     console.log('exit-bulk-upsert', log);
   }
 
@@ -106,28 +113,38 @@ export class DbService implements IDbService {
     return true;
   }
 
-  async drop(schema: CreateTableCommandInput) {
+  async recreate(schema: CreateTableCommandInput) {
     const log = { table: schema.TableName };
     await this.delete(schema.TableName!);
     await this.create(schema);
   }
 
   async findByIds<T>(table: string, ids: string[]): Promise<T[]> {
-    const log = { table, count: ids.length };
+    const log: Record<string, unknown> = { table, ids: ids.length };
+    const start = Date.now();
     console.log('enter-find-by-ids', log);
-    const commands = ids.map(id => new GetCommand({ TableName: table, Key: { id } }));
-    // process db queries at a throttled concurrency rate.
-    const merge$ = from(commands).pipe(
-      mergeMap(cmd => from(this._client.send(cmd)), this._env.dbConcurrency),
-      map(x => x.Item as T),
-      toArray()
-    );
-    const x = await lastValueFrom(merge$);
+
+    const batchGetCommands = <T>(ids: T[]) =>
+      new BatchGetCommand({ RequestItems: { [table]: { Keys: ids.map(id => ({ id })) } } });
+    const b = getBatches(ids, 100, batchGetCommands);
+    const responses = await Promise.all(b.map(cmd => this._client.send(cmd)));
+    const records = responses.flatMap<T>(x => (x.Responses?.[table] ?? []) as T[]);
+    // const records = await Promise.all(
+    //   ids.map(id => this._client.send(new GetCommand({ TableName: table, Key: { id } })))
+    // );
+    log.records = records.length;
+    log.duration = (Date.now() - start) / 1000;
     console.log('exit-find-by-ids', log);
-    return x;
+    return records;
   }
 
-  async scan<T>(table: string, filter?: string, select?: string[]): Promise<Partial<T>[]> {
+  async sql(query: string) {
+    console.log('enter-execute-sql');
+    await this._client.send(new ExecuteStatementCommand({ Statement: query }));
+    console.log('exit-execute-sql');
+  }
+
+  async scan<T>({ table, filter, select }: ScanProps): Promise<Partial<T>[]> {
     const log: Record<string, unknown> = { table, filter };
     console.log('enter-scan', log);
     const items: T[] = [];
@@ -138,7 +155,7 @@ export class DbService implements IDbService {
         new ScanCommand({
           TableName: table,
           FilterExpression: filter,
-          AttributesToGet: select,
+          ProjectionExpression: select?.join(','),
           ExclusiveStartKey: lastEvaluatedKey
         })
       );

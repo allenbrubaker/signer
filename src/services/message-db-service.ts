@@ -10,7 +10,7 @@ export interface IMessageDbService {
   create(force?: boolean): Promise<void>;
   messagesByIds(ids: string[]): Promise<Message[]>;
   bulkUpsert(messages: Message[]): Promise<void>;
-  unsignedMessageIds(): Promise<string[]>;
+  ids(): Promise<string[]>;
 }
 
 @injectable()
@@ -26,7 +26,7 @@ export class MessageDbService implements IMessageDbService {
     console.log('enter-message-seed');
     const existingCount = await this._db.count(MessageDbService.table);
     if (existingCount) {
-      console.log('skip-message-seed', { existingCount });
+      console.log('skip-message-seed', { count });
       return;
     }
     const jabber = new Jabber();
@@ -41,15 +41,15 @@ export class MessageDbService implements IMessageDbService {
   }
 
   async create(force = false): Promise<void> {
-    console.log('enter-create-key-table', { force });
-    await (force ? this._db.drop : this._db.create)(MESSAGE_SCHEMA);
-    console.log('exit-create-key-table', { force });
+    console.log('enter-create-message-table', { force });
+    await (force ? this._db.recreate(MESSAGE_SCHEMA) : this._db.create(MESSAGE_SCHEMA));
+    console.log('exit-create-message-table', { force });
   }
 
   async messagesByIds(ids: string[]): Promise<Message[]> {
-    console.log('enter-message-by-ids');
-    const messages = this._db.findByIds<Message>(MessageDbService.table, ids);
-    console.log('exit-message-by-ids');
+    console.log('enter-message-by-ids', { ids: ids.length });
+    const messages = await this._db.findByIds<Message>(MessageDbService.table, ids);
+    console.log('exit-message-by-ids', { ids: ids.length, messages: messages.length });
     return messages;
   }
 
@@ -57,8 +57,13 @@ export class MessageDbService implements IMessageDbService {
     await this._db.upsertBulk(MessageDbService.table, messages);
   }
 
-  async unsignedMessageIds(): Promise<string[]> {
-    const ids = (await this._db.scan<Message>(MessageDbService.table, 'keyId is null', ['id'])).map(x => x.id!);
+  async ids(): Promise<string[]> {
+    const ids = (
+      await this._db.scan<Message>({
+        table: MessageDbService.table,
+        select: ['id']
+      })
+    ).map(x => x.id!);
     return ids;
   }
 }

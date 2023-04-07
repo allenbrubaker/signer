@@ -1,6 +1,6 @@
 import 'reflect-metadata'; // prerequisite for inversify
 
-import { middy } from '@core/middleware';
+import { middyApi } from '@core/middleware';
 import { IStartupService, STARTUP_SERVICE } from '@services/startup-service';
 import { IsString } from 'class-validator';
 import { container } from 'src/provider';

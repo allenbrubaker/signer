@@ -21,13 +21,20 @@ const SCHEMA: Partial<CreateTableCommandInput> = {
 export const MESSAGE_SCHEMA: CreateTableCommandInput = {
   ...SCHEMA,
   TableName: Models.message,
-  KeySchema: [id, keyId],
-  AttributeDefinitions: [id, keyId]
+  KeySchema: [id],
+  AttributeDefinitions: [id]
 };
 
 export const KEY_SCHEMA: CreateTableCommandInput = {
   ...SCHEMA,
   TableName: Models.key,
+  KeySchema: [id],
+  AttributeDefinitions: [id]
+};
+
+export const SIGNATURE_SCHEMA: CreateTableCommandInput = {
+  ...SCHEMA,
+  TableName: Models.signature,
   KeySchema: [id],
   AttributeDefinitions: [id]
 };

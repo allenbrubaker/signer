@@ -1,11 +1,10 @@
 import { EventBridgeClient, PutEventsCommand, PutRuleCommand, PutTargetsCommand } from '@aws-sdk/client-eventbridge';
 import { injectable } from 'inversify';
 import { Event } from 'src/types';
-import { KeyService } from './key-service';
 
 export const EVENT_SERVICE = Symbol('EventService');
 export interface IEventService {
-  publish(...events: Event[]): Promise<void>;
+  publish(events: Event[]): Promise<void>;
   addQueueTarget(pattern: Event, arn: string, messageGroupId?: string): Promise<void>;
 }
 
@@ -13,7 +12,7 @@ export interface IEventService {
 export class EventService implements IEventService {
   readonly _client = new EventBridgeClient({ endpoint: `http://${process.env.LOCALSTACK_HOSTNAME}:4566` });
   constructor() {}
-  async publish(...events: Event[]) {
+  async publish(events: Event[]) {
     const log = { count: events.length, event: events[0].constructor.name };
     console.log('enter-publish-events', log);
     await this._client.send(

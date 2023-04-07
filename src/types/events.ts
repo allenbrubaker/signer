@@ -13,6 +13,8 @@ export class SignBatchCommand implements Event {
   constructor(init?: Partial<SignBatchCommand>) {
     Object.assign(this, init);
   }
+  @IsInt()
+  batch: number;
   @IsString({ each: true })
   messageIds: string[];
 }
