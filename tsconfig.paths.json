@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@lambdas/*": ["src/lambdas"],
+      "@core/*": ["src/core/*"],
+      "@type/*": ["src/types/*"],
+      "@services/*": ["src/services/*"]
+    }
+  }
+}

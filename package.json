@@ -1,0 +1,49 @@
+{
+  "name": "signer",
+  "version": "1.0.0",
+  "author": "Allen Brubaker",
+  "license": "MIT",
+  "description": "Concurrent record signing in batches",
+  "main": "serverless.ts",
+  "scripts": {
+    "prestart": "docker-compose up -d",
+    "start": "serverless deploy --stage local",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "stop": "docker-compose down"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.303.0",
+    "@aws-sdk/client-eventbridge": "^3.306.0",
+    "@aws-sdk/client-sqs": "^3.306.0",
+    "@aws-sdk/lib-dynamodb": "^3.303.0",
+    "@middy/core": "^3.4.0",
+    "@middy/http-error-handler": "^4.2.8",
+    "@middy/http-json-body-parser": "^3.4.0",
+    "axios": "^1.3.4",
+    "class-validator": "^0.14.0",
+    "cuid": "^3.0.0",
+    "inversify": "^6.0.1",
+    "jabber": "^1.5.3",
+    "middy-middleware-class-validator": "^2.0.2",
+    "middy-middleware-json-error-handler": "^3.0.0",
+    "rxjs": "^7.8.0"
+  },
+  "devDependencies": {
+    "@serverless/typescript": "^3.0.0",
+    "@types/aws-lambda": "^8.10.71",
+    "@types/node": "^14.14.25",
+    "esbuild": "^0.14.11",
+    "json-schema-to-ts": "^1.5.0",
+    "serverless": "^3.0.0",
+    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-esbuild": "^1.23.3",
+    "serverless-lift": "^1.25.1",
+    "serverless-localstack": "^1.0.5",
+    "ts-node": "^10.4.0",
+    "tsconfig-paths": "^3.9.0",
+    "typescript": "^4.1.3"
+  }
+}

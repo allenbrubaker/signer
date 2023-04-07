@@ -1,2 +1,7 @@
-# signer
-Record signing service leveraging events and lambdas
+# Installation
+- nvm use
+- npm i -g yarn
+- yarn install
+
+# Run locally
+- yarn start
