@@ -6,5 +6,6 @@ export enum Models {
 
 export enum Queue {
   key = 'key',
-  sign = 'sign'
+  sign = 'sign',
+  seed = 'seed',
 }

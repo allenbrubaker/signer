@@ -1,3 +1,4 @@
+import { AWS } from '@serverless/typescript';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Handler } from 'aws-lambda';
 import type { FromSchema, JSONSchema } from 'json-schema-to-ts';
 
@@ -33,9 +34,10 @@ type Parms = {
 };
 
 export const endpoints = (dirname: string, controller: string, ...parms: Parms[]) =>
-  parms.reduce<Record<string, unknown>>((acc, { handler, method, path }) => {
-    acc[handler] = {
+  parms.reduce<AWS['functions']>((acc, { handler, method, path }) => {
+    acc![handler] = {
       handler: `${handlerPath(dirname)}/${controller}.${handler}`,
+      timeout: 30,
       events: [
         {
           http: {
@@ -46,4 +48,6 @@ export const endpoints = (dirname: string, controller: string, ...parms: Parms[]
       ]
     };
     return acc;
-  }, {});
+  }, {} as any);
+
+type X = keyof AWS['functions'];

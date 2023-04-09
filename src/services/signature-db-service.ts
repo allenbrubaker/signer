@@ -5,7 +5,7 @@ import { DB_SERVICE, IDbService } from './db-service';
 export const SIGNATURE_DB_SERVICE = Symbol('SignatureDbService');
 export interface ISignatureDbService {
   count(): Promise<number>;
-  recreate(force?: boolean): Promise<void>;
+  recreate(): Promise<void>;
   bulkUpsert(signatures: Signature[]): Promise<void>;
 }
 
@@ -20,7 +20,7 @@ export class SignatureDbService implements ISignatureDbService {
 
   async recreate(): Promise<void> {
     console.log('enter-recreate-signature-table');
-    this._db.recreate(SIGNATURE_SCHEMA);
+    await this._db.recreate(SIGNATURE_SCHEMA);
     console.log('exit-recreate-signature-table');
   }
 

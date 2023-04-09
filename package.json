@@ -6,10 +6,12 @@
   "description": "Concurrent record signing in batches",
   "main": "serverless.ts",
   "scripts": {
-    "pprestart": "docker-compose up -d",
-    "start": "serverless deploy --stage local",
+    "predeploy": "docker-compose up -d",
+    "deploy": "serverless deploy --force --stage local",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "stop": "docker-compose down"
+    "stop": "docker-compose down",
+    "lambda:startup": "aws lambda invoke --function-name signer-local-startup lambda.log --log-type Tail --query 'LogResult'  --endpoint-url http://localhost:4566 --output text |  base64 -d | awk '{$2 = \"\"; print}'",
+    "lambda:sign": "aws lambda invoke --function-name signer-local-startSign --payload file://payload.json --cli-binary-format raw-in-base64-out lambda.log --log-type Tail --query 'LogResult' --endpoint-url http://localhost:4566 --output text |  base64 -d | awk '{$2 = \"\"; print}'"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -19,6 +21,7 @@
     "@aws-sdk/client-eventbridge": "^3.306.0",
     "@aws-sdk/client-sqs": "^3.306.0",
     "@aws-sdk/lib-dynamodb": "^3.303.0",
+    "@aws-sdk/node-http-handler": "^3.306.0",
     "@middy/core": "^3.4.0",
     "@middy/http-error-handler": "^4.2.8",
     "@middy/http-json-body-parser": "^3.4.0",

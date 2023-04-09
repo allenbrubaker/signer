@@ -1,26 +1,27 @@
 import {
-  AttributeValue,
   CreateTableCommand,
   CreateTableCommandInput,
   DeleteTableCommand,
   DynamoDBClient,
   ExecuteStatementCommand,
   ListTablesCommand,
-  waitUntilTableExists,
-  WriteRequest
+  waitUntilTableExists
 } from '@aws-sdk/client-dynamodb';
 import { BatchGetCommand, BatchWriteCommand, PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { inject, injectable } from 'inversify';
-import { defer, from, lastValueFrom, mergeMap } from 'rxjs';
 import { ENV_SERVICE, IEnvService } from './env-service';
 import { getBatches } from '@core/utils';
+import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
+import { Agent } from 'http';
+import { Agent as HttpsAgent } from 'https';
+import { defer, from, lastValueFrom, mergeMap, scan, tap } from 'rxjs';
 
 export type ScanProps = { table: string; filter?: string; select?: string[] };
 
 export interface IDbService {
   upsert<T>(table: string, item: Partial<T>): Promise<void>;
   count(table: string): Promise<number | undefined>;
-  upsertBulk<T>(table: string, items: T[]): Promise<void>;
+  upsertBulk<T>(table: string, items: T[], concurrency?: number): Promise<void>;
   create(schema: CreateTableCommandInput): Promise<boolean>;
   tables(): Promise<string[]>;
   delete(table: string): Promise<boolean>;
@@ -37,7 +38,14 @@ export const DB_SERVICE = Symbol('DbService');
 export class DbService implements IDbService {
   _client: DynamoDBClient;
   constructor(@inject(ENV_SERVICE) private _env: IEnvService) {
-    this._client = new DynamoDBClient({ endpoint: `http://${process.env.LOCALSTACK_HOSTNAME}:4566` });
+    this._client = new DynamoDBClient({
+      endpoint: _env.dynamoUrl,
+      region: _env.region,
+      requestHandler: new NodeHttpHandler({
+        httpAgent: new Agent({ keepAlive: true }),
+        httpsAgent: new HttpsAgent({ keepAlive: true })
+      })
+    });
   }
 
   static newId() {
@@ -58,23 +66,41 @@ export class DbService implements IDbService {
     await this._client.send(new PutCommand({ Item: item as Record<string, unknown>, TableName: table }));
   }
 
-  async upsertBulk<T>(table: string, items: T[]): Promise<void> {
-    const log: Record<string, unknown> = { table, count: items.length };
+  async upsertBulk<T>(table: string, items: T[], concurrency?: number): Promise<void> {
+    const log: Record<string, unknown> = { table, count: items.length, concurrency: concurrency ?? 'infinite' };
     const start = Date.now();
     console.log('enter-bulk-upsert', log);
 
     // max batch size is 25
-    const batches = Object.values(
-      items
-        .map<WriteRequest>(x => ({ PutRequest: { Item: x as Record<string, AttributeValue> } }))
-        .reduce<Record<number, WriteRequest[]>>((group, item, i) => {
-          (group[Math.floor(i / 25)] ||= []).push(item);
-          return group;
-        }, {})
-    ).map<BatchWriteCommand>(x => new BatchWriteCommand({ RequestItems: { [table]: x } }));
-    await lastValueFrom(
-      from(batches).pipe(mergeMap(cmd => defer(() => this._client.send(cmd)), this._env.dbConcurrency))
+    const batches = getBatches(
+      items,
+      25,
+      items =>
+        new BatchWriteCommand({
+          RequestItems: {
+            [table]: items.map(x => ({ PutRequest: { Item: x as Record<string, any> } }))
+          }
+        })
     );
+
+    const saving = Date.now();
+    await lastValueFrom(
+      from(batches).pipe(
+        mergeMap(cmd => defer(() => this._client.send(cmd)), concurrency),
+        scan((total, _) => total + 25, 0),
+        tap(total => {
+          if (total % 100 === 0) {
+            const duration = (Date.now() - saving) / 1000;
+            console.log(`saved-${table}`, {
+              progress: `${total}/${items.length}`,
+              rps: Math.round(total / duration),
+              duration
+            });
+          }
+        })
+      )
+    );
+    // await Promise.all(batches.map(cmd => this._client.send(cmd)));
     log.duration = Math.round((Date.now() - start) / 1000);
     console.log('exit-bulk-upsert', log);
   }
@@ -129,9 +155,6 @@ export class DbService implements IDbService {
     const b = getBatches(ids, 100, batchGetCommands);
     const responses = await Promise.all(b.map(cmd => this._client.send(cmd)));
     const records = responses.flatMap<T>(x => (x.Responses?.[table] ?? []) as T[]);
-    // const records = await Promise.all(
-    //   ids.map(id => this._client.send(new GetCommand({ TableName: table, Key: { id } })))
-    // );
     log.records = records.length;
     log.duration = (Date.now() - start) / 1000;
     console.log('exit-find-by-ids', log);

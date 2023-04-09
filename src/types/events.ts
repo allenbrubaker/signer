@@ -3,6 +3,16 @@ import { Key } from './models';
 
 export abstract class Event {}
 
+export class SeedMessageCommand implements Event {
+  constructor(init?: Partial<SeedMessageCommand>) {
+    Object.assign(this, init);
+  }
+
+  @IsInt()
+  @Min(1)
+  count: number;
+}
+
 export class StartSignCommand implements Event {
   @IsInt()
   @Min(1)

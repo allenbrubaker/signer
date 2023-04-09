@@ -12,6 +12,7 @@ import { Key } from '@type/models';
 import { EVENT_SERVICE, IEventService } from './event-service';
 import { AvailableKeyEvent, Event } from '@type/events';
 import { Queue } from '@type/enums';
+import { EventBridgeEvent } from 'aws-lambda';
 
 export const QUEUE_SERVICE = Symbol('QueueService');
 export interface IQueueService {
@@ -34,7 +35,12 @@ export class QueueService implements IQueueService {
     this._client = new SQSClient({ endpoint: `http://${process.env.LOCALSTACK_HOSTNAME}:4566` });
   }
 
-  private _names: Record<Queue, string> = { [Queue.key]: this._env.keyQueue, [Queue.sign]: this._env.signQueue };
+  private _names: Record<Queue, string> = {
+    [Queue.key]: this._env.keyQueue,
+    [Queue.sign]: this._env.signQueue,
+    [Queue.seed]: this._env.seedQueue
+  };
+
   private _urls: Partial<Record<Queue, string>> = {};
   public async url(queue: Queue) {
     if (this._urls[queue]) return this._urls[queue];
@@ -81,8 +87,10 @@ export class QueueService implements IQueueService {
   }
 
   async purge(queue: Queue): Promise<void> {
+    console.log('enter-purge', { queue });
     const url = await this.url(queue);
     await this._client.send(new PurgeQueueCommand({ QueueUrl: url }));
+    console.log('exit-purge', { queue });
   }
 
   async dequeue<T>(queue: Queue): Promise<T> {
@@ -94,9 +102,9 @@ export class QueueService implements IQueueService {
     );
     const body = Messages?.[0]?.Body;
     if (!body) throw Error('unable-to-find-available-key');
-    const item = JSON.parse(body) as T;
+    const item = (JSON.parse(body) as EventBridgeEvent<string, T>).detail;
     // @ts-ignore
-    log.id = item.id;
+    log.id = item.id ?? '';
     console.log('exit-dequeue', log);
     return item;
   }

@@ -1,43 +1,60 @@
 import { inject, injectable } from 'inversify';
 import Jabber from 'jabber';
-import { Message, Models, MESSAGE_SCHEMA } from 'src/types';
+import { Message, Models, MESSAGE_SCHEMA, SeedMessageCommand } from 'src/types';
 import { DbService, DB_SERVICE, IDbService } from './db-service';
+import { EVENT_SERVICE, IEventService } from './event-service';
 
 export const MESSAGE_DB_SERVICE = Symbol('MessageDbService');
 export interface IMessageDbService {
   upsert(record: Message): Promise<void>;
-  seed(count?: number): Promise<void>;
+  seed(count?: number, force?: boolean): Promise<void>;
   create(force?: boolean): Promise<void>;
   messagesByIds(ids: string[]): Promise<Message[]>;
   bulkUpsert(messages: Message[]): Promise<void>;
   ids(): Promise<string[]>;
+  seedByLambdas(count?: number, batchSize?: number): Promise<void>;
 }
 
 @injectable()
 export class MessageDbService implements IMessageDbService {
   static readonly table = Models.message;
-  constructor(@inject(DB_SERVICE) private _db: IDbService) {}
+  constructor(@inject(DB_SERVICE) private _db: IDbService, @inject(EVENT_SERVICE) private _event: IEventService) {}
 
   async upsert(message: Message) {
     await this._db.upsert(MessageDbService.table, message);
   }
 
-  async seed(count: number = 100000) {
+  async seed(count: number = 100000, force = false) {
     console.log('enter-message-seed');
-    const existingCount = await this._db.count(MessageDbService.table);
-    if (existingCount) {
-      console.log('skip-message-seed', { count });
-      return;
+    if (!force) {
+      const existingCount = await this._db.count(MessageDbService.table);
+      if (existingCount) {
+        console.log('skip-message-seed', { count });
+        return;
+      }
     }
     const jabber = new Jabber();
     const data = Array(count)
       .fill(null)
       .map<Message>(() => ({
         id: DbService.newId(),
-        message: jabber.createFullName()
+        message: jabber.createParagraph(10)
       }));
     await this._db.upsertBulk(MessageDbService.table, data);
     console.log('exit-message-seed', { count });
+  }
+
+  async seedByLambdas(count = 100000, batchSize = 1000) {
+    console.log('enter-message-seed-by-lambdas');
+    const existingCount = await this._db.count(MessageDbService.table);
+    if (existingCount) {
+      console.log('skip-message-seed-by-lambdas', { count });
+      return;
+    }
+    const batches = Array(Math.floor(count / batchSize)).fill(0);
+    if (count % batchSize > 0) batches.push(count % batchSize);
+    await this._event.publish(batches.map<SeedMessageCommand>(() => new SeedMessageCommand({ count: batchSize })));
+    console.log('exit-message-seed-by-lambdas', { count, batches: batches.length });
   }
 
   async create(force = false): Promise<void> {
@@ -58,12 +75,11 @@ export class MessageDbService implements IMessageDbService {
   }
 
   async ids(): Promise<string[]> {
-    const ids = (
-      await this._db.scan<Message>({
-        table: MessageDbService.table,
-        select: ['id']
-      })
-    ).map(x => x.id!);
+    const result = await this._db.scan<Message>({
+      table: MessageDbService.table,
+      select: ['id']
+    });
+    const ids = result.map(x => x.id!);
     return ids;
   }
 }

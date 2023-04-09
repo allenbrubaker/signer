@@ -18,10 +18,6 @@ export class Message extends Model {
 }
 
 export class Signature extends Model {
-  constructor(init?: Partial<Signature>) {
-    super();
-    Object.assign(this, init);
-  }
   @IsString()
   keyId: string; // foreign key to key record used to sign the message.
   @IsString()

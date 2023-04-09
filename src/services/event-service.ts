@@ -25,7 +25,7 @@ export class EventService implements IEventService {
 
   async addQueueTarget(pattern: Event, arn: string, messageGroupId?: string) {
     const name = pattern.constructor.name;
-    const log = { event: name, arn };
+    const log = { event: name, queue: arn.split(':').at(-1) };
     console.log('enter-add-queue-target', log);
     await this._client.send(
       new PutRuleCommand({

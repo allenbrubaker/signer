@@ -8,6 +8,8 @@ export interface IEnvService {
   get dbConcurrency(): number;
   get keyQueue(): string;
   get signQueue(): string;
+  get seedQueue(): string;
+  get dynamoUrl(): string;
 }
 
 @injectable()
@@ -23,13 +25,20 @@ export class EnvService implements IEnvService {
     return this.string('API_URL');
   }
   get dbConcurrency() {
-    return this.number(`DB_CONCURRENCY`);
+    return this.number(`DB_CONCURRENCY`) || 20;
   }
   get keyQueue() {
     return this.string(`KEY_QUEUE`);
   }
   get signQueue() {
     return this.string(`SIGN_QUEUE`).split('/').at(-1)!; // get queue name from url
+  }
+  get seedQueue() {
+    return this.string(`SEED_QUEUE`).split('/').at(-1)!; // get queue name from url
+  }
+
+  get dynamoUrl() {
+    return this.string(`DYNAMO_URL`);
   }
 
   private string(key: string) {

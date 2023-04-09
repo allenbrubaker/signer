@@ -28,12 +28,18 @@ const logger: MiddlewareObj = {
   }
 };
 
-const parseEvent: MiddlewareObj<SQSEvent> = {
+const parseEvent: MiddlewareObj<SQSEvent, any> = {
   before: b => {
     // @ts-ignore
     b.event = JSON.parse(b.event.Records[0].body) as EventBridgeEvent<string, string>;
     // @ts-ignore
     b.event.body = b.event.detail;
+  }
+};
+
+const defaultBody: MiddlewareObj<{ body: string }, any> = {
+  before: b => {
+    b.event.body = b.event.body || '{}';
   }
 };
 
@@ -47,10 +53,9 @@ export const middySqs = <T extends object, TEvent = Body<EventBridgeEvent<string
 ) =>
   middyBase((event: TEvent, context: Context) => handler({ event, context }))
     .use(parseEvent)
+    .use(defaultBody)
     .use(logger)
-    // .use(jsonResponse);
     .use(new ClassValidatorMiddleware({ classType }));
-// .use(JSONErrorHandlerMiddleware());
 
 export const middyApi = <T extends object, TEvent = Body<APIGatewayEvent, T>, TResult = any>(
   classType: Class<T>,
@@ -59,5 +64,6 @@ export const middyApi = <T extends object, TEvent = Body<APIGatewayEvent, T>, TR
   middyBase((event: TEvent, context: Context) => handler({ event, context }))
     .use(logger)
     .use(jsonResponse)
+    .use(defaultBody)
     .use(new ClassValidatorMiddleware({ classType }));
 // .use(JSONErrorHandlerMiddleware());

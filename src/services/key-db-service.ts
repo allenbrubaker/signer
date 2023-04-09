@@ -6,7 +6,7 @@ import { generateKeyPair, generateKeyPairSync } from 'crypto';
 export const KEY_DB_SERVICE = Symbol('KeyDbService');
 export interface IKeyDbService {
   keys(): Promise<Key[]>;
-  create(): Promise<void>;
+  create(force?: boolean): Promise<void>;
   seed(count?: number): Promise<Key[] | undefined>;
 }
 
@@ -46,16 +46,14 @@ export class KeyDbService implements IKeyDbService {
       generateKeyPair(
         'rsa',
         {
-          modulusLength: 2048,
+          modulusLength: 512,
           publicKeyEncoding: {
             type: 'spki',
             format: 'pem'
           },
           privateKeyEncoding: {
             type: 'pkcs8',
-            format: 'pem',
-            cipher: 'aes-256-cbc',
-            passphrase: 'top secret'
+            format: 'pem'
           }
         },
         (err, publicKey, privateKey) => {
@@ -66,7 +64,7 @@ export class KeyDbService implements IKeyDbService {
     });
   }
 
-  async create(): Promise<void> {
-    await this._db.create(KEY_SCHEMA);
+  async create(force?: boolean): Promise<void> {
+    await (force ? this._db.recreate(KEY_SCHEMA) : this._db.create(KEY_SCHEMA));
   }
 }
